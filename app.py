@@ -1,53 +1,93 @@
 import streamlit as st
 import pandas as pd
-from allocator import allocate_resources
 import matplotlib.pyplot as plt
+from allocator import allocate_resources
 
-st.title("☁️ Cloud OS Resource Allocation Simulator")
+# Page config
+st.set_page_config(page_title="Cloud OS Simulator", layout="wide")
 
-# Input total resources
-total_cpu = st.number_input("Total CPU", value=8)
-total_ram = st.number_input("Total RAM", value=16)
+# Title
+st.markdown("<h1 style='text-align: center;'>☁️ Cloud OS Resource Allocation Dashboard</h1>", unsafe_allow_html=True)
 
-st.subheader("Enter User Requests")
+st.markdown("---")
 
-num_users = st.number_input("Number of Users", min_value=1, max_value=10, value=3)
+# Sidebar inputs
+st.sidebar.header("⚙️ System Configuration")
+
+total_cpu = st.sidebar.slider("Total CPU", 1, 32, 8)
+total_ram = st.sidebar.slider("Total RAM (GB)", 1, 64, 16)
+
+num_users = st.sidebar.slider("Number of Users", 1, 10, 3)
+
+st.sidebar.markdown("---")
+
+# User inputs
+st.subheader("👥 User Requests")
 
 users = []
 
-for i in range(num_users):
-    cpu = st.number_input(f"User {i+1} CPU", value=1, key=f"cpu{i}")
-    ram = st.number_input(f"User {i+1} RAM", value=2, key=f"ram{i}")
-    
-    users.append({"id": i+1, "cpu": cpu, "ram": ram})
+cols = st.columns(3)
 
-if st.button("Allocate Resources"):
+for i in range(num_users):
+    with cols[i % 3]:
+        st.markdown(f"### User {i+1}")
+        cpu = st.number_input(f"CPU", min_value=1, value=1, key=f"cpu{i}")
+        ram = st.number_input(f"RAM", min_value=1, value=2, key=f"ram{i}")
+        priority = st.selectbox(f"Priority", [1,2,3], key=f"priority{i}")
+        
+        users.append({
+            "id": i+1,
+            "cpu": cpu,
+            "ram": ram,
+            "priority": priority
+        })
+
+st.markdown("---")
+
+# Allocation button
+if st.button("🚀 Allocate Resources"):
+
     allocated, waiting, rem_cpu, rem_ram = allocate_resources(users, total_cpu, total_ram)
 
-    st.success("Allocation Complete!")
+    # Convert to DataFrame
+    df_alloc = pd.DataFrame(allocated)
+    df_wait = pd.DataFrame(waiting)
 
-    st.write("### ✅ Allocated Users")
-    st.write(allocated)
+    col1, col2 = st.columns(2)
 
-    st.write("### ⏳ Waiting Users")
-    st.write(waiting)
+    with col1:
+        st.success("✅ Allocated Users")
+        st.dataframe(df_alloc)
 
-    st.write(f"Remaining CPU: {rem_cpu}")
-    st.write(f"Remaining RAM: {rem_ram}")
-cpu_used = total_cpu - rem_cpu
+    with col2:
+        st.warning("⏳ Waiting Users")
+        st.dataframe(df_wait)
 
-st.subheader("📊 CPU Usage")
+    st.markdown("---")
 
-fig1, ax1 = plt.subplots()
-ax1.pie([cpu_used, rem_cpu], labels=["Used", "Free"], autopct="%1.1f%%")
-st.pyplot(fig1)
+    # Metrics
+    cpu_used = total_cpu - rem_cpu
+    ram_used = total_ram - rem_ram
 
-ram_used = total_ram - rem_ram
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total CPU", total_cpu)
+    m2.metric("Used CPU", cpu_used)
+    m3.metric("Total RAM", total_ram)
+    m4.metric("Used RAM", ram_used)
 
-st.subheader("📊 RAM Usage")
+    st.markdown("---")
 
-fig2, ax2 = plt.subplots()
-ax2.pie([ram_used, rem_ram], labels=["Used", "Free"], autopct="%1.1f%%")
-st.pyplot(fig2)
+    # Graphs
+    col3, col4 = st.columns(2)
 
-    
+    with col3:
+        st.subheader("📊 CPU Usage")
+        fig1, ax1 = plt.subplots()
+        ax1.pie([cpu_used, rem_cpu], labels=["Used", "Free"], autopct="%1.1f%%")
+        st.pyplot(fig1)
+
+    with col4:
+        st.subheader("📊 RAM Usage")
+        fig2, ax2 = plt.subplots()
+        ax2.pie([ram_used, rem_ram], labels=["Used", "Free"], autopct="%1.1f%%")
+        st.pyplot(fig2)
